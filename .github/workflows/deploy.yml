@@ -1,47 +1,43 @@
-name: Build dan Deploy GitHub Pages
+# Build percobaan: menjalankan build.js dan seluruh pengujiannya, TANPA memublikasikan situs.
+# Simpan sebagai .github/workflows/build-percobaan.yml PADA BRANCH "percobaan" (bukan main).
+# Berbeda dari workflow deploy produksi: tidak ada izin pages/id-token, tidak ada deploy,
+# dan hanya berjalan untuk push ke branch percobaan.
+name: Build percobaan (tanpa publish)
 
 on:
   push:
-    branches:
-      - main
+    branches: [percobaan]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Mode build'
+        type: choice
+        options: [preview, production]
+        default: preview
+      list_presets:
+        description: 'Cetak daftar path preset di log (untuk tinjauan editorial)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Ambil kode repository
-        uses: actions/checkout@v4
-
-      - name: Siapkan Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "22"
-
-      - name: Buat file website
+          node-version: 22
+      - name: Build dan jalankan pengujian
         run: node build.js
-
-      - name: Siapkan hasil build untuk Pages
-        uses: actions/upload-pages-artifact@v3
+        env:
+          LC_MODE: ${{ inputs.mode || 'preview' }}
+          LC_LIST_PRESETS: ${{ inputs.list_presets && '1' || '' }}
+      - name: Simpan hasil build sebagai artifact (bisa diunduh, tidak dipublikasikan)
+        uses: actions/upload-artifact@v4
         with:
-          path: ./dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Publikasikan website
-        id: deployment
-        uses: actions/deploy-pages@v4
+          name: dist-${{ inputs.mode || 'preview' }}
+          path: dist
+          retention-days: 7
